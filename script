@@ -1,0 +1,73 @@
+#include <esp_now.h>
+#include <WiFi.h>
+
+// Pin for the button on the first ESP32
+const int buttonPin = 2;
+
+// Pin for the relay on the second ESP32
+const int relayPin = 4;
+
+// Define the MAC address of the second ESP32
+uint8_t broadcastAddress[] = {0x24, 0x6F, 0x28, 0x9A, 0x13, 0x72};
+
+bool relayState = false;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(buttonPin, INPUT);
+  pinMode(relayPin, OUTPUT);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  // Register peer
+  esp_now_peer_info_t peerInfo;
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  // Set callback for receiving data
+  esp_now_register_recv_cb([](uint8_t* mac, uint8_t* data, uint8_t len) {
+    if (len > 0) {
+      if (data[0] == 'O' && data[1] == 'N') {
+        digitalWrite(relayPin, HIGH);  // Activate the relay
+        relayState = true;
+        Serial.println("Relay turned ON");
+      } else if (data[0] == 'O' && data[1] == 'F' && data[2] == 'F') {
+        digitalWrite(relayPin, LOW);  // Deactivate the relay
+        relayState = false;
+        Serial.println("Relay turned OFF");
+      }
+    }
+  });
+}
+
+void loop() {
+  // Check if the button is pressed
+  if (digitalRead(buttonPin) == HIGH) {
+    // Button is pressed, send a message to turn on/off the relay
+    uint8_t message[3];
+    if (relayState) {
+      message[0] = 'O';
+      message[1] = 'F';
+      message[2] = 'F';
+    } else {
+      message[0] = 'O';
+      message[1] = 'N';
+      message[2] = '\0';
+    }
+
+    esp_now_send(broadcastAddress, message, sizeof(message));
+    delay(1000);  // Debounce delay
+  }
+
+  delay(100);
+}
