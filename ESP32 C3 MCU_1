@@ -1,0 +1,40 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+const char* ssid = "ESP32_AP";               //Set the name of the MCU_1 AP
+const char* password = "password";           //Set password for the MCU_1 AP
+
+WebServer server(80);
+
+bool touchState = false;
+
+void handleRoot() {
+  if (touchState) {
+    server.send(200, "text/plain", "Touch sensor activated");
+  } else {
+    server.send(200, "text/plain", "Touch sensor not activated");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Starting access point...");
+  WiFi.softAP(ssid, password);
+
+  IPAddress apIP = WiFi.softAPIP();
+  Serial.print("Access Point IP address: ");
+  Serial.println(apIP);
+
+  server.on("/", handleRoot);
+  server.begin();
+  Serial.println("HTTP server started");
+}
+
+void loop() {
+  // Simulating touch sensor activation (replace with actual sensor reading)
+  touchState = digitalRead(21);
+
+  server.handleClient();
+}

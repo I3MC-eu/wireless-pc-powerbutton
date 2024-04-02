@@ -1,0 +1,52 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+const char* ssid = "ESP32_AP";             //input the set name in ESP32 C3 MCU_1 script
+const char* password = "password";         //input the set password in ESP32 C3 MCU_1 script
+const char* serverAddress = "192.168.4.1"; // IP address of MCU_1 on the AP network
+
+int relayPin = 5; // GPIO5
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Connecting to AP...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting...");
+  }
+  Serial.println("Connected to AP");
+
+  pinMode(relayPin, OUTPUT);
+}
+
+void loop() {
+  HTTPClient http;
+
+  Serial.print("Sending request to server... ");
+  http.begin("http://" + String(serverAddress));
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      Serial.println("Server response: " + payload);
+
+      if (payload == "Touch sensor activated") {
+        digitalWrite(relayPin, HIGH);
+      } else {
+        digitalWrite(relayPin, LOW);
+      }
+    } else {
+      Serial.println("Server error");
+    }
+  } else {
+    Serial.println("Connection failed");
+  }
+
+  http.end();
+  delay(5000); // Send request every 5 seconds
+}
